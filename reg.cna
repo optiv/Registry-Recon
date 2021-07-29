@@ -1,0 +1,256 @@
+# Registry Recon
+# Author: Jess Hires
+# There will almost definitely be some false positives while this is active
+
+import java.awt.*; # for borderlayout
+import javax.swing.*; # for jpanel
+import javax.swing.table.*; #tablerowsorter
+import table.*; # generictablemodel
+import ui.*; #atable
+import javax.swing.JPanel;
+import java.awt.GridLayout;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JSpinner;
+import javax.swing.JTextPane;
+import javax.swing.JButton;
+import javax.swing.GroupLayout;
+import javax.swing.GroupLayout.*;
+import javax.swing.BoxLayout;
+import javax.swing.JLabel;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.JTextField;
+import java.awt.FlowLayout;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.JCheckBox;
+import java.awt.Font;
+
+# Setup some variables
+
+# Recon reg key names
+@recon = @("ProductName", "CSDVersion", "CurrentVersion", "CurrentBuild", "SystemRoot", "RegisteredOrganization", "Hostname", "Domain", "DhcpNameServer", "DhcpDomain", "SystemManufacturer", "SystemProductName", "LocalAccountTokenFilterPolicy", "LsaCfgFlags");
+
+# AV reg key names
+@mcafee = @("McAfee\\", "McAfeeAgent\\", "APPolicyName", "EPPolicyName", "OASPolicyName");
+@symantec = @("Symantec\\", "Symantec Endpoint Protection\\");
+@windefender = @("DisableRealtimeMonitoring");
+@windefenderatp = @();
+
+# EDR reg nanes
+@carbonblack = @("CarbonBlack\\", "CbDefense\\", "SensorVersion");
+@crowdstrike = @("CrowdStrike\\", "%SYSTEMROOT%\\system32\\drivers\\crowdstrike\\CsDeviceControl.inf", "%SYSTEMROOT%\\system32\\drivers\\crowdstrike\\CsFirmwareAnalysis.inf");
+@cylance = @("Cylance\\", "Cylance0", "Cylance1", "Cylance2");
+@fireeye = @("FireEye\\");
+@sentinelone = @("Sentinel Labs\\", "Sentinel Agent\\", "externalID");
+
+# Add an item the right-click menu
+popup beacon {
+	separator();
+	menu "&RegEnum" {
+		item "&Normal" {
+			local ('$bid');
+			# The beacon id ($1) is an array even if you only have one beacon selected
+			foreach $bid ($1) {
+				reg_enum($bid, false);
+			}
+		}
+		item "&Alternate" {
+			# more reg queries, but less output
+			local ('$bid');
+			# The beacon id ($1) is an array even if you only have one beacon selected
+			foreach $bid ($1) {
+				reg_enum($bid, true);
+			}
+		}
+	}
+}
+
+# Register a new beacon command
+beacon_command_register("regenum",
+	"System, AV, and EDR profiling via registry queries",
+	"Use: regenum or regenum_alt\n" .
+	"Profiles system information, AV, and EDR products using registry queries." .
+	"Alternate mode reads more registry keys, but generates less output.");
+
+# Add a command alias also
+alias regenum {
+	reg_enum($1);
+}
+alias regenum_alt {
+	reg_enum($1, true);
+}
+
+# Query some reg!
+sub reg_enum {
+	local ('$bid $alt $arch');
+	$bid = $1;
+	$alt = $2;
+	$arch = beacon_arch($bid);
+
+	# Windows Info
+	if($alt){
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CSDVersion", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentVersion", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentBuild", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "SystemRoot", $arch);
+	} else {
+		breg_query($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", $arch);
+	}
+
+	# Networking Info
+	if($alt){
+		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "Hostname", $arch);
+		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "Domain", $arch);
+		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "DhcpNameServer", $arch);
+		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "DhcpDomain", $arch);
+	} else {
+		breg_query($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", $arch);
+	}
+
+	# Network Interfaces
+	#TODO
+	# breg_query($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces", $arch);
+
+	# Hardware Information
+	if($alt){
+		breg_queryv($bid, "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS", "SystemManufacturer", $arch);
+		breg_queryv($bid, "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS", "SystemProductName", $arch);
+	} else {
+		breg_query($bid, "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS", $arch);
+	}
+
+	# Installed Software
+	breg_query($bid, "HKLM\\SOFTWARE", $arch);
+	breg_query($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", $arch);
+	
+	# UAC Remote Restriction
+	breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", "LocalAccountTokenFilterPolicy", $arch);
+
+	# Windows Defender Credential Guard
+	breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa", "LsaCfgFlags", $arch);
+	breg_queryv($bid, "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard", "LsaCfgFlags", $arch);
+
+	# Windows Defender
+	breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows Defender\\Real-Time Protection", "DisableRealtimeMonitoring", $arch);
+
+	# Windows Defender ATPD Attack Surface Reduction
+	breg_query($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows Advanced Threat Protection\\Status", $arch);
+
+	# McAfee
+	if($alt){
+		breg_queryv($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", "APPolicyName", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", "EPPolicyName", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", "OASPolicyName", $arch);
+	} else {
+		breg_query($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", $arch);
+	}
+
+	# Symantec Endpoint Protection
+	breg_query($bid, "HKLM\\SOFTWARE\\Symantec", $arch);
+
+	# Cylance
+	if($alt){
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", "Cylance0", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", "Cylance1", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", "Cylance2", $arch);
+	} else {
+		breg_query($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", $arch);
+	}
+
+	# Carbon Black 
+	if($alt){
+		breg_queryv($bid, "HKLM\\SOFTWARE\\CbDefense", "SensorVersion", $arch);
+	} else {
+		breg_query($bid, "HKLM\\SOFTWARE\\CbDefense", $arch);
+	}
+
+	# CrowdStrike
+	if($alt){
+		breg_queryv($bid, "HKLM\\SOFTWARE\\CrowdStrike\\InfDb", "%SYSTEMROOT%\\system32\\drivers\\crowdstrike\\CsDeviceControl.inf", $arch);
+		breg_queryv($bid, "HKLM\\SOFTWARE\\CrowdStrike\\InfDb", "%SYSTEMROOT%\\system32\\drivers\\crowdstrike\\CsFirmwareAnalysis.inf", $arch);
+	} else {
+		breg_query($bid, "HKLM\\SOFTWARE\\CrowdStrike\\InfDb", $arch);
+	}
+
+	# Sentinal One
+	if($alt){
+		breg_queryv($bid, "HKLM\\SOFTWARE\\Sentinel Labs\\Agent", "externalID", $arch);
+	} else {
+		breg_query($bid, "HKLM\\SOFTWARE\\Sentinel Labs", $arch);
+		breg_query($bid, "HKLM\\SOFTWARE\\Sentinel Labs\\Agent", $arch);
+	}
+}
+
+# Determine the beacon process architecture for reg query commands
+sub beacon_arch {
+	if (-is64 $1){
+		return "x64";
+	} else {
+		return "x86";
+	}
+}
+
+# Highlight interesting registry values
+# This currently hijacks all beacon output, looking for specific reg key names
+# There will almost definitely be some false positives
+set BEACON_OUTPUT {
+	local('$output $line $keyname $keyval @beacon_lines')
+
+	# Process each line of beacon output
+	foreach $line (split("\n", ["$2" trim])) {
+		($keyname) = split(" ", $line);
+
+		# Highlight recon values BLUE
+		if(iff($keyname in @recon, true, false)) {
+			$line = "\cC[+] Recon: \n\cC$line";
+		}
+
+		# Highlight AV values YELLOW
+		# McAfee
+		else if(iff($keyname in @mcafee, true, false)) {
+			$line = "\c8[+] McAfee identified: \n\c8$line";
+		}
+		# Symantec Endpoint Protection
+		else if(iff($line in @symantec, true, false)) {
+			$line = "\c8[+] Symantec Endpoint Proection identified: \n\c8$line";
+		}
+		# Windows Defender
+		else if(iff($keyname in @windefender, true, false)) {
+			$line = "\c8[+] Windows Defender identified: \n\c8$line";
+		}
+		# Windows Defender ATP
+		#TODO
+		else if(iff($keyname in @windefenderatp, true, false)) {
+			$line = "\c8[+] Windows Defender ATP identified: \n\c8$line";
+		}
+
+		# Highlight EDR values RED
+		# Carbon Black
+		else if(iff($keyname in @carbonblack, true, false)) {
+			$line = "\c4[+] Carbon Black identified: \n\c4$line";
+		}
+		# CrowdStrike
+		else if(iff($keyname in @crowdstrike, true, false)) {
+			$line = "\c4[+] CrowdStrike identified: \n\c4$line";
+		}
+		# Cylance
+		else if(iff($keyname in @cylance, true, false)) {
+			$line = "\c4[+] Cylance identified: \n\c4$line";
+		}
+		# FireEye
+		else if(iff($keyname in @fireeye, true, false)) {
+			$line = "\c4[+] FireEye Endpoint Security identified: \n\c4$line";
+		}
+		# Sentine One
+		else if(iff($line in @sentinelone, true, false)) {
+			$line = "\c4[+] Sentinel One identified: \n\c4$line";
+		}
+
+		push(@beacon_lines, $line);
+	}
+	foreach $line (@beacon_lines) {
+		$output .= "$line\n";
+	}
+	return $output;
+}
