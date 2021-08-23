@@ -46,20 +46,12 @@ import java.awt.Font;
 # Add an item the right-click menu
 popup beacon {
 	separator();
-	menu "&RegEnum" {
-		item "&Normal" {
+	menu "&Registry" {
+		item "&Recon" {
 			local ('$bid');
 			# The beacon id ($1) is an array even if you only have one beacon selected
 			foreach $bid ($1) {
 				reg_enum($bid, false);
-			}
-		}
-		item "&Alternate" {
-			# more reg queries, but less output
-			local ('$bid');
-			# The beacon id ($1) is an array even if you only have one beacon selected
-			foreach $bid ($1) {
-				reg_enum($bid, true);
 			}
 		}
 	}
@@ -68,57 +60,31 @@ popup beacon {
 # Register a new beacon command
 beacon_command_register("regenum",
 	"System, AV, and EDR profiling via registry queries",
-	"Use: regenum or regenum_alt\n" .
-	"Profiles system information, AV, and EDR products using registry queries." .
-	"Alternate mode reads more registry keys, but generates less output.");
+	"Use: regenum\n" .
+	"Profiles system information, AV, and EDR products using registry queries.");
 
 # Add a command alias also
 alias regenum {
 	reg_enum($1);
 }
-alias regenum_alt {
-	reg_enum($1, true);
-}
 
 # Query some reg!
 sub reg_enum {
-	local ('$bid $alt $arch');
+	local ('$bid $arch');
 	$bid = $1;
-	$alt = $2;
 	$arch = beacon_arch($bid);
 
 	# Windows Info
-	if($alt){
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CSDVersion", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentVersion", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentBuild", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "SystemRoot", $arch);
-	} else {
-		breg_query($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", $arch);
-	}
+	breg_query($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", $arch);
 
 	# Networking Info
-	if($alt){
-		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "Hostname", $arch);
-		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "Domain", $arch);
-		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "DhcpNameServer", $arch);
-		breg_queryv($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "DhcpDomain", $arch);
-	} else {
-		breg_query($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", $arch);
-	}
+	breg_query($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", $arch);
 
 	# Network Interfaces
-	#TODO
 	# breg_query($bid, "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces", $arch);
 
 	# Hardware Information
-	if($alt){
-		breg_queryv($bid, "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS", "SystemManufacturer", $arch);
-		breg_queryv($bid, "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS", "SystemProductName", $arch);
-	} else {
-		breg_query($bid, "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS", $arch);
-	}
+	breg_query($bid, "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS", $arch);
 
 	# Installed Software
 	breg_query($bid, "HKLM\\SOFTWARE", $arch);
@@ -138,48 +104,23 @@ sub reg_enum {
 	breg_query($bid, "HKLM\\SOFTWARE\\Microsoft\\Windows Advanced Threat Protection\\Status", $arch);
 
 	# McAfee
-	if($alt){
-		breg_queryv($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", "APPolicyName", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", "EPPolicyName", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", "OASPolicyName", $arch);
-	} else {
-		breg_query($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", $arch);
-	}
+	breg_query($bid, "HKLM\\SOFTWARE\\McAfee\\Endpoint\\AV", $arch);
 
 	# Symantec Endpoint Protection
 	breg_query($bid, "HKLM\\SOFTWARE\\Symantec", $arch);
 
 	# Cylance
-	if($alt){
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", "Cylance0", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", "Cylance1", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", "Cylance2", $arch);
-	} else {
-		breg_query($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", $arch);
-	}
+	breg_query($bid, "HKLM\\SOFTWARE\\Cylance\\Desktop", $arch);
 
 	# Carbon Black 
-	if($alt){
-		breg_queryv($bid, "HKLM\\SOFTWARE\\CbDefense", "SensorVersion", $arch);
-	} else {
-		breg_query($bid, "HKLM\\SOFTWARE\\CbDefense", $arch);
-	}
+	breg_query($bid, "HKLM\\SOFTWARE\\CbDefense", $arch);
 
 	# CrowdStrike
-	if($alt){
-		breg_queryv($bid, "HKLM\\SOFTWARE\\CrowdStrike\\InfDb", "%SYSTEMROOT%\\system32\\drivers\\crowdstrike\\CsDeviceControl.inf", $arch);
-		breg_queryv($bid, "HKLM\\SOFTWARE\\CrowdStrike\\InfDb", "%SYSTEMROOT%\\system32\\drivers\\crowdstrike\\CsFirmwareAnalysis.inf", $arch);
-	} else {
-		breg_query($bid, "HKLM\\SOFTWARE\\CrowdStrike\\InfDb", $arch);
-	}
+	breg_query($bid, "HKLM\\SOFTWARE\\CrowdStrike\\InfDb", $arch);
 
 	# Sentinal One
-	if($alt){
-		breg_queryv($bid, "HKLM\\SOFTWARE\\Sentinel Labs\\Agent", "externalID", $arch);
-	} else {
-		breg_query($bid, "HKLM\\SOFTWARE\\Sentinel Labs", $arch);
-		breg_query($bid, "HKLM\\SOFTWARE\\Sentinel Labs\\Agent", $arch);
-	}
+	breg_query($bid, "HKLM\\SOFTWARE\\Sentinel Labs", $arch);
+	breg_query($bid, "HKLM\\SOFTWARE\\Sentinel Labs\\Agent", $arch);
 }
 
 # Determine the beacon process architecture for reg query commands
