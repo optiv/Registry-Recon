@@ -6,7 +6,7 @@ Author: Jess Hires
 ## Description
 As a red-team practitioner, we are often using tools that attempt to fingerprint details about a compromised system, preferably in the most stealthy way possible. Some of our usual tooling for this started getting flagged by EDR products, due to the use of Windows CLI commands. This aggressor script aims to solve that problem by only probing the system using native registry queries, no CLI commands.
 
-## Setup 👋
+## Setup
 Simply load `reg.cna` into Cobalt Strike using the Script Manager. Then right-click on the beacon you want to run registry recon on, and choose `RegEnum`.
 
 ## How does this work?
